@@ -32,7 +32,7 @@ void setup()
   }
 
   WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP("box7", "alexlubaanton30");
+  WiFiMulti.addAP("Robolab", "robolab011a");
   http.setReuse(true);
   Serial.println("Remote contol with MMA7455 accelerometer starting...");
 
@@ -133,7 +133,7 @@ void loop()
   {
     WiFiClient client;
 
-    String url = "http://192.168.1.161:8080/";
+    String url = "http://192.168.183.101:8080/";
     String throttle = "";
     String steering = "";
     CarControl(throttle, steering);
