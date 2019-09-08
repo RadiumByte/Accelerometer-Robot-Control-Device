@@ -47,21 +47,46 @@ void CreateCommands(double dX, double dY, String& throttle, String& steering)
   steering = "";
 
   if (dY > baseThrottle)
-    throttle += "f";
+    throttle += "F";
   else
-    throttle += "b";
+    throttle += "B";
 
   double throttleDelta = fabs(dY - baseThrottle);
-  throttle += String((int)(throttleDelta * 100.0));
+  int throttleConverted = (int)(throttleDelta * 100.0);
+
+  if (throttleConverted > 100)
+    throttleConverted = 100;
+  else if (throttleConverted < 0)
+    throttleConverted = 0;
+
+  throttle += String(throttleConverted);
 
   int steeringPercent = (int)(fabs(dX - baseSteering) * 100.0);
   int steeringConverted = map(steeringPercent, 0, 100, 0, 50);
-  steering += "s";
+  steering += "S";
 
   if (dX > baseSteering)
-    steering += String(50 - steeringConverted);
+  {
+    int steeringToSend = 50 - steeringConverted;
+
+    if (steeringToSend > 100)
+      steeringToSend = 100;
+    else if (steeringToSend < 0)
+      steeringToSend = 0;
+
+    steering += String(steeringToSend);
+  }
   else
-    steering += String(50 + steeringConverted);
+  {
+    int steeringToSend = 50 + steeringConverted;
+
+    if (steeringToSend > 100)
+      steeringToSend = 100;
+    else if (steeringToSend < 0)
+      steeringToSend = 0;
+
+    steering += String(steeringToSend);
+  }
 }
 
 // Core driving function - gets values from MMA and calculates commands
@@ -108,7 +133,7 @@ void loop()
   {
     WiFiClient client;
 
-    String url = "http://192.168.1.3:8080/";
+    String url = "http://192.168.1.161:8080/";
     String throttle = "";
     String steering = "";
     CarControl(throttle, steering);
@@ -143,5 +168,5 @@ void loop()
     }
   }
 
-  delay(100);
+  delay(500);
 }
