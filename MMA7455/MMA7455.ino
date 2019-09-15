@@ -21,10 +21,6 @@ void setup()
 {
   Serial.begin(115200);
 
-  Serial.println();
-  Serial.println();
-  Serial.println();
-
   for (uint8_t t = 4; t > 0; t--) {
     Serial.printf("[SETUP] WAIT %d...\n", t);
     Serial.flush();
@@ -62,7 +58,12 @@ void CreateCommands(double dX, double dY, String& throttle, String& steering)
   throttle += String(throttleConverted);
 
   int steeringPercent = (int)(fabs(dX - baseSteering) * 100.0);
-  int steeringConverted = map(steeringPercent, 0, 100, 0, 50);
+  // Default:
+  // int steeringConverted = map(steeringPercent, 0, 100, 0, 50);
+
+  // Steering test: (MAX value if steering == 75 OR 25)
+  int steeringConverted = steeringPercent;
+  
   steering += "S";
 
   if (dX > baseSteering)
@@ -144,11 +145,11 @@ void loop()
 
       if (httpCode > 0)
       {
-        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+        Serial.printf("[HTTP] PUT... code: %d\n", httpCode);
       }
       else
       {
-        Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        Serial.printf("[HTTP] PUT... failed, error: %s\n", http.errorToString(httpCode).c_str());
       }
       http.end();
     }
@@ -158,15 +159,15 @@ void loop()
 
       if (httpCode > 0)
       {
-        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+        Serial.printf("[HTTP] PUT... code: %d\n", httpCode);
       }
       else
       {
-        Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        Serial.printf("[HTTP] PUT... failed, error: %s\n", http.errorToString(httpCode).c_str());
       }
       http.end();
     }
   }
 
-  delay(500);
+  delay(100);
 }
