@@ -9,6 +9,8 @@
 
 #include "MMA7455.h"
 
+#define BLOCK_BTN D4
+
 MMA7455 sensor(FOUR_G, MEASURE_MODE);
 ESP8266WiFiMulti WiFiMulti;
 HTTPClient http;
@@ -16,6 +18,10 @@ HTTPClient http;
 double baseThrottle;
 double baseSteering;
 bool needToSetup;
+
+
+int prevThrottle;
+int prevSteering;
 
 void setup()
 {
@@ -32,9 +38,14 @@ void setup()
   http.setReuse(true);
   Serial.println("Remote contol with MMA7455 accelerometer starting...");
 
+  pinMode(BLOCK_BTN, INPUT_PULLUP);
+
   baseThrottle = 0.0;
   baseSteering = 0.0;
   needToSetup = true;
+
+  prevThrottle = 0;
+  prevSteering = 0;
 }
 
 void CreateCommands(double dX, double dY, String& throttle, String& steering)
@@ -55,6 +66,11 @@ void CreateCommands(double dX, double dY, String& throttle, String& steering)
   else if (throttleConverted < 0)
     throttleConverted = 0;
 
+  if (abs(throttleConverted  - prevThrottle) <= 5)
+    throttleConverted = prevThrottle;
+  else
+    prevThrottle = throttleConverted;
+    
   throttle += String(throttleConverted);
 
   int steeringPercent = (int)(fabs(dX - baseSteering) * 100.0);
@@ -75,6 +91,11 @@ void CreateCommands(double dX, double dY, String& throttle, String& steering)
     else if (steeringToSend < 0)
       steeringToSend = 0;
 
+    if (abs(steeringToSend  - prevSteering) <= 5)
+      steeringToSend = prevSteering;
+    else
+      prevSteering = steeringToSend;
+
     steering += String(steeringToSend);
   }
   else
@@ -85,6 +106,11 @@ void CreateCommands(double dX, double dY, String& throttle, String& steering)
       steeringToSend = 100;
     else if (steeringToSend < 0)
       steeringToSend = 0;
+
+    if (abs(steeringToSend  - prevSteering) <= 3)
+      steeringToSend = prevSteering;
+    else
+      prevSteering = steeringToSend;
 
     steering += String(steeringToSend);
   }
@@ -111,21 +137,16 @@ void CarControl(String& throttle, String& steering)
   }
 
   CreateCommands(dX, dY, throttle, steering);
+  
+  // if block button pressed
+  if (digitalRead(BLOCK_BTN))
+  {
+    throttle = "F0";
+  }
+  
   Serial.print(throttle);
   Serial.print("  ");
   Serial.println(steering);
-  // if unblock button pressed
-  /*
-    if (!digitalRead(NEXT_BTN))
-    {
-    // TO DO: send throttle
-    // TO DO: send steering
-    }
-    else
-    {
-    // TO DO: send throttle = 0
-    }
-  */
 }
 
 void loop()
@@ -138,7 +159,7 @@ void loop()
     String throttle = "";
     String steering = "";
     CarControl(throttle, steering);
-
+    /*
     if (http.begin(client, url + throttle))
     {
       int httpCode = http.PUT("Command");
@@ -167,6 +188,7 @@ void loop()
       }
       http.end();
     }
+    */
   }
 
   delay(100);
