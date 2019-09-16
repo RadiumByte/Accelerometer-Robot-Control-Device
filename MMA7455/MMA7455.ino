@@ -75,10 +75,10 @@ void CreateCommands(double dX, double dY, String& throttle, String& steering)
 
   int steeringPercent = (int)(fabs(dX - baseSteering) * 100.0);
   // Default:
-  // int steeringConverted = map(steeringPercent, 0, 100, 0, 50);
+  int steeringConverted = map(steeringPercent, 0, 100, 0, 50);
 
   // Steering test: (MAX value if steering == 75 OR 25)
-  int steeringConverted = steeringPercent;
+  //int steeringConverted = steeringPercent;
   
   steering += "S";
 
@@ -155,11 +155,11 @@ void loop()
   {
     WiFiClient client;
 
-    String url = "http://192.168.183.101:8080/";
+    String url = "http://192.168.183.100:8080/";
     String throttle = "";
     String steering = "";
     CarControl(throttle, steering);
-    /*
+    
     if (http.begin(client, url + throttle))
     {
       int httpCode = http.PUT("Command");
@@ -188,7 +188,7 @@ void loop()
       }
       http.end();
     }
-    */
+    
   }
 
   delay(100);
