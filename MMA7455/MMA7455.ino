@@ -19,7 +19,6 @@ double baseThrottle;
 double baseSteering;
 bool needToSetup;
 
-
 int prevThrottle;
 int prevSteering;
 
@@ -48,107 +47,6 @@ void setup()
   prevSteering = 0;
 }
 
-void CreateCommands(double dX, double dY, String& throttle, String& steering)
-{
-  throttle = "";
-  steering = "";
-
-  if (dY > baseThrottle)
-    throttle += "F";
-  else
-    throttle += "B";
-
-  double throttleDelta = fabs(dY - baseThrottle);
-  int throttleConverted = (int)(throttleDelta * 100.0);
-
-  if (throttleConverted > 100)
-    throttleConverted = 100;
-  else if (throttleConverted < 0)
-    throttleConverted = 0;
-
-  if (abs(throttleConverted  - prevThrottle) <= 5)
-    throttleConverted = prevThrottle;
-  else
-    prevThrottle = throttleConverted;
-    
-  throttle += String(throttleConverted);
-
-  int steeringPercent = (int)(fabs(dX - baseSteering) * 100.0);
-  // Default:
-  int steeringConverted = map(steeringPercent, 0, 100, 0, 50);
-
-  // Steering test: (MAX value if steering == 75 OR 25)
-  //int steeringConverted = steeringPercent;
-  
-  steering += "S";
-
-  if (dX > baseSteering)
-  {
-    int steeringToSend = 50 - steeringConverted;
-
-    if (steeringToSend > 100)
-      steeringToSend = 100;
-    else if (steeringToSend < 0)
-      steeringToSend = 0;
-
-    if (abs(steeringToSend  - prevSteering) <= 5)
-      steeringToSend = prevSteering;
-    else
-      prevSteering = steeringToSend;
-
-    steering += String(steeringToSend);
-  }
-  else
-  {
-    int steeringToSend = 50 + steeringConverted;
-
-    if (steeringToSend > 100)
-      steeringToSend = 100;
-    else if (steeringToSend < 0)
-      steeringToSend = 0;
-
-    if (abs(steeringToSend  - prevSteering) <= 3)
-      steeringToSend = prevSteering;
-    else
-      prevSteering = steeringToSend;
-
-    steering += String(steeringToSend);
-  }
-}
-
-// Core driving function - gets values from MMA and calculates commands
-void CarControl(String& throttle, String& steering)
-{
-  uint16_t x, y, z, error;
-  double dX, dY, dZ;
-  dX = 0.0;
-  dY = 0.0;
-
-  error = sensor.measure(&x, &y, &z);
-  dX = (int16_t) x / 64.0;
-  dY = (int16_t) y / 64.0;
-
-  if (needToSetup)
-  {
-    needToSetup = false;
-    baseThrottle = dY;
-    baseSteering = dX;
-    return;
-  }
-
-  CreateCommands(dX, dY, throttle, steering);
-  
-  // if block button pressed
-  if (digitalRead(BLOCK_BTN))
-  {
-    throttle = "F0";
-  }
-  
-  Serial.print(throttle);
-  Serial.print("  ");
-  Serial.println(steering);
-}
-
 void loop()
 {
   if ((WiFiMulti.run() == WL_CONNECTED))
@@ -156,40 +54,122 @@ void loop()
     WiFiClient client;
 
     String url = "http://192.168.183.100:8080/";
+
     String throttle = "";
     String steering = "";
-    CarControl(throttle, steering);
-    
-    if (http.begin(client, url + throttle))
-    {
-      int httpCode = http.PUT("Command");
 
-      if (httpCode > 0)
-      {
-        Serial.printf("[HTTP] PUT... code: %d\n", httpCode);
-      }
-      else
-      {
-        Serial.printf("[HTTP] PUT... failed, error: %s\n", http.errorToString(httpCode).c_str());
-      }
-      http.end();
-    }
-    if (http.begin(client, url + steering))
-    {
-      int httpCode = http.PUT("Command");
+    // Get gravity vector
+    uint16_t x, y, z, error;
+    double dX, dY, dZ;
+    dX = 0.0;
+    dY = 0.0;
+    error = sensor.measure(&x, &y, &z);
+    dX = (int16_t) x / 64.0;
+    dY = (int16_t) y / 64.0;
 
-      if (httpCode > 0)
-      {
-        Serial.printf("[HTTP] PUT... code: %d\n", httpCode);
-      }
-      else
-      {
-        Serial.printf("[HTTP] PUT... failed, error: %s\n", http.errorToString(httpCode).c_str());
-      }
-      http.end();
+    // Initial iteration - orientation of device is set as base
+    if (needToSetup)
+    {
+      needToSetup = false;
+      baseThrottle = dY;
+      baseSteering = dX;
+      return;
     }
-    
+
+    // Determine the direction of throttle
+    // F stands for Forward
+    // B stands for Backward
+    if (dY > baseThrottle)
+      throttle += "F";
+    else
+      throttle += "B";
+
+    // Calculate the throttle
+    double throttleDelta = fabs(dY - baseThrottle);
+    int throttleConverted = (int)(throttleDelta * 100.0);
+
+    // Check exceeding values
+    if (throttleConverted > 100)
+      throttleConverted = 100;
+    else if (throttleConverted < 0)
+      throttleConverted = 0;
+
+    // If block button pressed
+    if (digitalRead(BLOCK_BTN))
+    {
+      throttleConverted = 0;
+    }
+
+    // Sensivity check for device
+    // If this check failed - no need to send new command to server
+    if (abs(throttleConverted  - prevThrottle) > 4)
+    {
+      // Throttle changed significantly
+      prevThrottle = throttleConverted;
+      throttle += String(throttleConverted);
+      Serial.println(throttle);
+
+      if (http.begin(client, url + throttle))
+      {
+        int httpCode = http.PUT("Command");
+
+        if (httpCode > 0)
+        {
+          Serial.printf("[HTTP] PUT... code: %d\n", httpCode);
+        }
+        else
+        {
+          Serial.printf("[HTTP] PUT... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        }
+        http.end();
+      }
+
+    }
+
+    // Calculate the steering
+    int steeringPercent = (int)(fabs(dX - baseSteering) * 100.0);
+    int steeringConverted = map(steeringPercent, 0, 100, 0, 50);
+
+    steering += "S";
+    int steeringToSend = 50;
+
+    // Steering left
+    if (dX > baseSteering)
+      steeringToSend -= steeringConverted;
+    // Steering right
+    else
+      steeringToSend += steeringConverted;
+
+    if (steeringToSend > 100)
+      steeringToSend = 100;
+    else if (steeringToSend < 0)
+      steeringToSend = 0;
+
+    // Sensivity check
+    // If it was failed - no need to send steering again
+    if (abs(steeringToSend  - prevSteering) > 4)
+    {
+      prevSteering = steeringToSend;
+      steering += String(steeringToSend);
+      Serial.println(steering);
+
+      if (http.begin(client, url + steering))
+      {
+        int httpCode = http.PUT("Command");
+
+        if (httpCode > 0)
+        {
+          Serial.printf("[HTTP] PUT... code: %d\n", httpCode);
+        }
+        else
+        {
+          Serial.printf("[HTTP] PUT... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        }
+        http.end();
+      }
+
+    }
   }
 
-  delay(100);
+  delay(250);
 }
